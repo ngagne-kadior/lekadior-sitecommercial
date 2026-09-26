@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Espace privé : jamais indexé par les moteurs de recherche -->
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="same-origin">
+  <title>Administration — Le Kadior</title>
+  <link rel="icon" type="image/png" href="../assets/images/favicon.png">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <!-- Démarrage : affiché le temps de vérifier la session -->
+  <div id="boot" class="boot">Chargement…</div>
+
+  <!-- Connexion -->
+  <section id="login-view" class="login" hidden>
+    <form id="login-form" class="login-card" novalidate>
+      <div class="login-brand">
+        <img src="../assets/images/logo-lekadior.png" alt="Le Kadior" width="150" height="100">
+        <h1>Espace administrateur</h1>
+      </div>
+      <p id="login-message" class="alert" hidden></p>
+      <label>E-mail
+        <input type="email" name="email" autocomplete="username" required>
+      </label>
+      <label>Mot de passe
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+      <a class="login-back" href="../index.html">← Retour au site</a>
+    </form>
+  </section>
+
+  <!-- Administration (visible uniquement pour un compte admin) -->
+  <div id="admin-view" class="layout" hidden>
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="../assets/images/logo-lekadior.png" alt="Le Kadior" width="120" height="80">
+        <span>Administration</span>
+      </div>
+      <nav class="nav" aria-label="Administration">
+        <a href="#dashboard" data-section="dashboard">Tableau de bord</a>
+        <a href="#products" data-section="products">Produits</a>
+        <a href="#categories" data-section="categories">Catégories</a>
+        <a href="#events" data-section="events">Événements</a>
+        <a href="#promotions" data-section="promotions">Promotions</a>
+        <a href="#gallery" data-section="gallery">Galerie</a>
+        <a href="#settings" data-section="settings">Paramètres</a>
+      </nav>
+      <div class="sidebar-foot">
+        <span id="user-email" class="user-email"></span>
+        <a class="btn btn-ghost btn-small" href="../index.html" target="_blank" rel="noopener">Voir le site</a>
+        <button id="logout" type="button" class="btn btn-ghost btn-small">Déconnexion</button>
+      </div>
+    </aside>
+    <main id="main" class="main" tabindex="-1"></main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- Configuration existante du site (clé PUBLIQUE uniquement) -->
+  <script src="../data/supabase-config.js"></script>
+  <!-- Bibliothèque officielle Supabase, version figée + contrôle d'intégrité -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
+          integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok"
+          crossorigin="anonymous"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

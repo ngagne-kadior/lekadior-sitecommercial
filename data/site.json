@@ -1,0 +1,20 @@
+{
+  "brand": "Le Kadior",
+  "location": "Mbour, Sénégal",
+  "openingHours": "Lun - Dim : 6h - 22h",
+  "whatsapp": "221784666259",
+  "phone": "+221 77 123 45 67",
+  "email": "lekadior@gmail.com",
+  "theme": {
+    "primary": "#D4A72C",
+    "brown": "#4A2C20",
+    "cream": "#FFF8EC",
+    "dark": "#24150F"
+  },
+  "socials": {
+    "instagram": "https://www.instagram.com/lekadior_officiel/",
+    "facebook": "https://www.facebook.com/share/1EYZV6tKAs/?mibextid=wwXIfr",
+    "tiktok": "https://www.tiktok.com/@lekadior_officiel",
+    "youtube": ""
+  }
+}

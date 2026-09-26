@@ -1,0 +1,10 @@
+# Données internes de l'entreprise (non publiées)
+*.xlsx
+~$*
+
+# Fichiers système / éditeur
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+node_modules/

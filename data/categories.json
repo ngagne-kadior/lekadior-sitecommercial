@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "lastUpdated": "2026-09-24",
+  "source": "Copie d'export de data/catalog.js (source utilisée par le site)",
+  "categories": [
+    {"id": "C01", "name": "Pain", "label": "Pain", "description": "Pains traditionnels et spéciaux", "image": "assets/images/category-pain.jpg", "imageFocus": "65% 60%", "href": null, "order": 1},
+    {"id": "C02", "name": "Viennoiserie", "label": "Viennoiserie", "description": "Croissants, pains chocolat et plus encore", "image": "assets/images/viennoiserie.png", "imageFocus": null, "href": null, "order": 2},
+    {"id": "C03", "name": "Pâtisserie", "label": "Pâtisserie", "description": "Douceurs et créations maison", "image": "assets/images/category-patisserie.png", "imageFocus": null, "href": null, "order": 3},
+    {"id": "C04", "name": "Snack", "label": "Snack", "description": "Sandwichs, burgers et petites restaurations", "image": "assets/images/snack.png", "imageFocus": null, "href": null, "order": 4},
+    {"id": "C05", "name": "Gâteaux", "label": "Gâteaux & Événements", "description": "Anniversaire, mariage, baptême, etc.", "image": "assets/images/gateaux.png", "imageFocus": null, "href": "evenements.html", "order": 5},
+    {"id": "C06", "name": "Matériel", "label": "Matériel", "description": "Équipements pour boulangerie & pâtisserie", "image": "assets/images/materiels.png", "imageFocus": null, "href": "materiel.html", "order": 6}
+  ]
+}
