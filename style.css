@@ -300,3 +300,6 @@ a.media{display:block}
 .floating-whatsapp{right:24px;bottom:24px;width:64px;height:64px;background:#25D366;z-index:1000}
 .floating-whatsapp-icon{display:block;width:30px;height:30px;fill:#fff;color:#fff}
 @media(max-width:768px){.floating-whatsapp{width:56px;height:56px}.floating-whatsapp-icon{width:26px;height:26px}}
+/* Footer : lien WhatsApp avec le même logo SVG que le bouton flottant */
+.footer .footer-whatsapp{display:inline-flex;align-items:center;gap:6px}
+.footer-whatsapp-icon{width:14px;height:14px;flex-shrink:0;fill:#25D366;display:block}

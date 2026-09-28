@@ -36,24 +36,47 @@
   <!-- Administration (visible uniquement pour un compte admin) -->
   <div id="admin-view" class="layout" hidden>
     <aside class="sidebar">
-      <div class="sidebar-brand">
+      <header class="sidebar-brand">
         <img src="../assets/images/logo-lekadior.png" alt="Le Kadior" width="120" height="80">
         <span>Administration</span>
-      </div>
+      </header>
       <nav class="nav" aria-label="Administration">
-        <a href="#dashboard" data-section="dashboard">Tableau de bord</a>
-        <a href="#products" data-section="products">Produits</a>
-        <a href="#categories" data-section="categories">Catégories</a>
-        <a href="#events" data-section="events">Événements</a>
-        <a href="#promotions" data-section="promotions">Promotions</a>
-        <a href="#gallery" data-section="gallery">Galerie</a>
-        <a href="#settings" data-section="settings">Paramètres</a>
+        <a href="#dashboard" data-section="dashboard">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          <span>Tableau de bord</span>
+        </a>
+        <a href="#products" data-section="products">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
+          <span>Produits</span>
+        </a>
+        <a href="#categories" data-section="categories">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>
+          <span>Catégories</span>
+        </a>
+        <a href="#events" data-section="events">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          <span>Événements</span>
+        </a>
+        <a href="#promotions" data-section="promotions">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8L3 12Z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg>
+          <span>Promotions</span>
+        </a>
+        <a href="#gallery" data-section="gallery">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>
+          <span>Galerie</span>
+        </a>
+        <a href="#settings" data-section="settings">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+          <span>Paramètres</span>
+        </a>
       </nav>
-      <div class="sidebar-foot">
+      <footer class="sidebar-foot">
         <span id="user-email" class="user-email"></span>
-        <a class="btn btn-ghost btn-small" href="../index.html" target="_blank" rel="noopener">Voir le site</a>
-        <button id="logout" type="button" class="btn btn-ghost btn-small">Déconnexion</button>
-      </div>
+        <div class="sidebar-actions">
+          <a class="btn btn-ghost btn-small" href="../index.html" target="_blank" rel="noopener">Voir le site</a>
+          <button id="logout" type="button" class="btn btn-ghost btn-small">Déconnexion</button>
+        </div>
+      </footer>
     </aside>
     <main id="main" class="main" tabindex="-1"></main>
   </div>

@@ -1,4 +1,5 @@
 {
+  "_obsolete": "FICHIER OBSOLÈTE — lu par aucun script du site. La source de vérité des paramètres (adresse, localisation, téléphone, WhatsApp, e-mail, horaires, réseaux sociaux…) est la table Supabase site_settings, modifiable depuis /admin. Les valeurs ci-dessous sont anciennes et conservées pour mémoire uniquement.",
   "brand": "Le Kadior",
   "location": "Mbour, Sénégal",
   "openingHours": "Lun - Dim : 6h - 22h",

@@ -1,17 +1,27 @@
 // Numéro WhatsApp : paramètre Supabase « whatsapp » si disponible, sinon valeur locale
-const WHATSAPP = /^\d{8,15}$/.test(window.KADIOR_SETTINGS?.whatsapp || "") ? window.KADIOR_SETTINGS.whatsapp : "221784666259";
+// (mis à jour par applySettings dès que les paramètres Supabase sont reçus)
+let WHATSAPP = "221784666259";
 const WA_ICON = `<svg class="whatsapp-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>`;
 
 /* ============ DONNÉES ============
-   Catégories et produits : source unique dans data/catalog.js (chargé avant ce fichier).
-   Pour remplacer une image : déposer le fichier du même nom dans assets/images/.
-   Tant qu'il est absent, la carte affiche « Photo à venir ». */
+   Catégories et produits : tableaux KADIOR_CATEGORIES / KADIOR_PRODUCTS.
+   Valeurs de secours dans data/catalog.js ; data/supabase-sync.js les remplace
+   par les données Supabase (cache au chargement, puis données fraîches via
+   l'événement « kadior:products », qui redessine la page ouverte).
+   Image absente : la carte affiche « Photo à venir ». */
 
-const categories = [...KADIOR_CATEGORIES].sort((a, b) => a.order - b.order);
-const products = KADIOR_PRODUCTS;
+let categories = [];
+const products = KADIOR_PRODUCTS;   // tableau partagé, mis à jour en place par supabase-sync.js
 
 // Filtres de la page produits : « Tous » + les catégories officielles
-const FILTERS = [{key:"all", label:"Tous"}, ...categories.map(c => ({key:c.name, label:c.name}))];
+let FILTERS = [];
+
+// (Re)calcule les catégories triées et les filtres à partir des données courantes
+function syncCatalogData() {
+  categories = [...KADIOR_CATEGORIES].sort((a, b) => a.order - b.order);
+  FILTERS = [{key:"all", label:"Tous"}, ...categories.map(c => ({key:c.name, label:c.name}))];
+}
+syncCatalogData();
 
 // Types d'événements : table Supabase « events » si disponible, sinon liste locale ci-dessous
 const eventTypes = window.KADIOR_EVENTS?.length ? window.KADIOR_EVENTS : [
@@ -130,6 +140,10 @@ function renderProducts() {
 
 /* ============ PAGE PRODUITS ============ */
 
+// Rendus réutilisables après une mise à jour Supabase (définis par les pages concernées)
+let rerenderCatalog = null;
+let rerenderProductPage = null;
+
 function initCatalog() {
   const grid = $("#catalogGrid");
   if (!grid) return;
@@ -138,13 +152,18 @@ function initCatalog() {
   const empty = $("#catalogEmpty");
   const params = new URLSearchParams(location.search);
   const query = (params.get("q") || "").trim();
-  let current = params.get("cat") || "all";
+  const requested = params.get("cat") || "all";
+  let current = requested;
+  let userChose = false;   // filtre choisi à la main : jamais remplacé par une mise à jour
   if (!FILTERS.some(f => f.key === current)) current = "all";
 
   const normalize = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-  bar.innerHTML = FILTERS.map(f =>
-    `<button type="button" class="filter-chip" data-filter="${f.key}" aria-pressed="false">${f.label}</button>`).join("");
+  const buildBar = () => {
+    bar.innerHTML = FILTERS.map(f =>
+      `<button type="button" class="filter-chip" data-filter="${f.key}" aria-pressed="false">${f.label}</button>`).join("");
+  };
+  buildBar();
 
   if (query) {
     info.hidden = false;
@@ -179,6 +198,7 @@ function initCatalog() {
     const button = e.target.closest(".filter-chip");
     if (!button || button.dataset.filter === current) return;
     current = button.dataset.filter;
+    userChose = true;
     try {
       const url = new URL(location.href);
       if (current === "all") url.searchParams.delete("cat");
@@ -189,6 +209,15 @@ function initCatalog() {
   });
 
   render(false);
+
+  // Données Supabase fraîches : filtres et grille redessinés, filtre choisi conservé
+  // (la catégorie demandée dans l'URL est reprise si elle devient disponible)
+  rerenderCatalog = () => {
+    buildBar();
+    if (!FILTERS.some(f => f.key === current)) current = "all";
+    if (!userChose && requested !== "all" && FILTERS.some(f => f.key === requested)) current = requested;
+    render(false);
+  };
 }
 
 /* ============ PAGE PRODUIT ============ */
@@ -197,72 +226,81 @@ function initProductPage() {
   const box = $("#productDetail");
   if (!box) return;
   const id = new URLSearchParams(location.search).get("id");
-  const p = products.find(item => item.id === id);
-
-  if (!p) {
-    box.innerHTML = `
-      <div class="empty-block">
-        <h1>Produit introuvable</h1>
-        <p>Ce produit n'existe pas ou n'est plus disponible.</p>
-        <a class="btn btn-gold" href="produits.html">Voir le catalogue</a>
-      </div>`;
-    $("#relatedSection")?.remove();
-    return;
-  }
-
-  document.title = `${p.name} — Le Kadior`;
-  const equipment = isEquipment(p);
-  box.innerHTML = `
-    <a class="back-link" href="produits.html">← Retour au catalogue</a>
-    <div class="detail-grid">
-      <div class="media detail-img reveal">
-        <img src="${p.image}" alt="${p.name}" width="800" height="800" style="object-position:${p.imageFocus || "center"}">
-      </div>
-      <div class="detail-info reveal">
-        <nav class="breadcrumb" aria-label="Fil d'Ariane">
-          <a href="index.html">Accueil</a><span>›</span>
-          <a href="produits.html?cat=${encodeURIComponent(p.category)}">${p.category}</a><span>›</span>
-          <span>${p.name}</span>
-        </nav>
-        <span class="product-cat">${p.category}</span>
-        <h1>${p.name}</h1>
-        <div class="detail-price">${priceText(p)}</div>
-        ${ratingHtml(p)}
-        <p class="detail-desc">${p.description}</p>
-        <div class="detail-meta">
-          <span class="stock ${p.available ? "in" : "out"}">● ${p.available ? "Disponible" : "Momentanément indisponible"}</span>
-          <span>📍 Mbour, Sénégal</span>
-          <span>🚚 Livraison possible</span>
-        </div>
-        ${equipment ? "" : `
-        <div class="qty-row">
-          <span>Quantité</span>
-          <div class="qty" role="group" aria-label="Quantité">
-            <button type="button" data-qty="-1" aria-label="Diminuer la quantité">−</button>
-            <output id="qtyValue" aria-live="polite">1</output>
-            <button type="button" data-qty="1" aria-label="Augmenter la quantité">+</button>
-          </div>
-        </div>`}
-        <a class="btn btn-gold btn-large detail-order" id="orderBtn" target="_blank" rel="noopener" href="${whatsappLink(orderMessage(p))}">
-          ${WA_ICON}<span>${equipment ? "Demander le prix sur WhatsApp" : "Commander sur WhatsApp"}</span>
-        </a>
-        <p class="detail-note">Votre commande est envoyée directement à Le Kadior sur WhatsApp : +221 78 466 62 59.</p>
-      </div>
-    </div>`;
-
+  const related = $("#relatedSection");
+  let p = null;
   let qty = 1;
-  const orderBtn = $("#orderBtn");
+
+  // Quantité : un seul écouteur, qui s'applique toujours au produit affiché
   box.addEventListener("click", e => {
     const button = e.target.closest("[data-qty]");
-    if (!button) return;
+    if (!button || !p) return;
     qty = Math.min(99, Math.max(1, qty + Number(button.dataset.qty)));
     $("#qtyValue").textContent = qty;
-    orderBtn.href = whatsappLink(orderMessage(p, qty));
+    $("#orderBtn").href = whatsappLink(orderMessage(p, qty));
   });
 
-  const sameCategory = products.filter(x => x.id !== p.id && x.category === p.category);
-  const others = products.filter(x => x.id !== p.id && x.category !== p.category && !isEquipment(x));
-  $("#relatedGrid").innerHTML = [...sameCategory, ...others].slice(0, 4).map((x, i) => productCard(x, i, true)).join("");
+  const draw = () => {
+    p = products.find(item => item.id === id) || null;
+
+    if (!p) {
+      box.innerHTML = `
+        <div class="empty-block">
+          <h1>Produit introuvable</h1>
+          <p>Ce produit n'existe pas ou n'est plus disponible.</p>
+          <a class="btn btn-gold" href="produits.html">Voir le catalogue</a>
+        </div>`;
+      if (related) related.hidden = true;
+      return;
+    }
+    if (related) related.hidden = false;
+
+    document.title = `${p.name} — Le Kadior`;
+    const equipment = isEquipment(p);
+    box.innerHTML = `
+      <a class="back-link" href="produits.html">← Retour au catalogue</a>
+      <div class="detail-grid">
+        <div class="media detail-img reveal">
+          <img src="${p.image}" alt="${p.name}" width="800" height="800" style="object-position:${p.imageFocus || "center"}">
+        </div>
+        <div class="detail-info reveal">
+          <nav class="breadcrumb" aria-label="Fil d'Ariane">
+            <a href="index.html">Accueil</a><span>›</span>
+            <a href="produits.html?cat=${encodeURIComponent(p.category)}">${p.category}</a><span>›</span>
+            <span>${p.name}</span>
+          </nav>
+          <span class="product-cat">${p.category}</span>
+          <h1>${p.name}</h1>
+          <div class="detail-price">${priceText(p)}</div>
+          ${ratingHtml(p)}
+          <p class="detail-desc">${p.description}</p>
+          <div class="detail-meta">
+            <span class="stock ${p.available ? "in" : "out"}">● ${p.available ? "Disponible" : "Momentanément indisponible"}</span>
+            <span data-setting="location" data-setting-prefix="📍 ">📍 ${escapeHtml(settingText(window.KADIOR_SETTINGS, "location") || "Mbour, Sénégal")}</span>
+            <span>🚚 Livraison possible</span>
+          </div>
+          ${equipment ? "" : `
+          <div class="qty-row">
+            <span>Quantité</span>
+            <div class="qty" role="group" aria-label="Quantité">
+              <button type="button" data-qty="-1" aria-label="Diminuer la quantité">−</button>
+              <output id="qtyValue" aria-live="polite">${qty}</output>
+              <button type="button" data-qty="1" aria-label="Augmenter la quantité">+</button>
+            </div>
+          </div>`}
+          <a class="btn btn-gold btn-large detail-order" id="orderBtn" target="_blank" rel="noopener" href="${whatsappLink(orderMessage(p, qty))}">
+            ${WA_ICON}<span>${equipment ? "Demander le prix sur WhatsApp" : "Commander sur WhatsApp"}</span>
+          </a>
+          <p class="detail-note">Votre commande est envoyée directement à Le Kadior sur WhatsApp : <span data-setting="whatsapp">${escapeHtml(formatPhone(WHATSAPP))}</span>.</p>
+        </div>
+      </div>`;
+
+    const sameCategory = products.filter(x => x.id !== p.id && x.category === p.category);
+    const others = products.filter(x => x.id !== p.id && x.category !== p.category && !isEquipment(x));
+    $("#relatedGrid").innerHTML = [...sameCategory, ...others].slice(0, 4).map((x, i) => productCard(x, i, true)).join("");
+  };
+
+  draw();
+  rerenderProductPage = draw;
 }
 
 /* ============ PAGE ÉVÉNEMENTS ============ */
@@ -418,6 +456,114 @@ function setupWhatsApp() {
     link.rel = "noopener";
   });
 }
+
+/* ============ PARAMÈTRES DU SITE (Supabase « site_settings ») ============
+   Source de vérité : table site_settings (address, location, phone, whatsapp,
+   email, openingHours, socials…), transmise par data/supabase-sync.js.
+   Dans le HTML :
+   - data-setting="clé"        : l'élément affiche la valeur du paramètre ;
+                                 le texte déjà présent sert de secours si
+                                 Supabase est indisponible ;
+   - data-setting-prefix="…"   : texte conservé devant la valeur (ex. « 📍 ») ;
+   - lien tel: / mailto:       : mis à jour automatiquement (phone / email) ;
+   - data-social="facebook|instagram|tiktok|youtube" : lien du réseau social ;
+   - data-map-link             : lien Google Maps construit depuis « location ».
+   « address » (adresse complète) et « location » (localisation générale / carte)
+   restent deux paramètres distincts.
+   ======================================================================= */
+
+// Chiffres d'un numéro ; un numéro sénégalais à 9 chiffres reçoit l'indicatif 221
+function phoneDigits(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  return digits.length === 9 ? "221" + digits : digits;
+}
+
+// Affichage lisible : +221 78 466 62 59
+function formatPhone(value) {
+  const m = /^221(\d{2})(\d{3})(\d{2})(\d{2})$/.exec(phoneDigits(value));
+  return m ? `+221 ${m[1]} ${m[2]} ${m[3]} ${m[4]}` : String(value).trim();
+}
+
+function settingText(settings, key) {
+  const v = settings?.[key];
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
+// Remplace le texte d'un élément sans toucher à ses icônes (svg)
+function setSettingText(el, text) {
+  const value = (el.dataset.settingPrefix || "") + text;
+  const nodes = [...el.childNodes].filter(n => n.nodeType === Node.TEXT_NODE && n.nodeValue.trim());
+  if (nodes.length) nodes[nodes.length - 1].nodeValue = value;
+  else el.append(value);
+}
+
+function applySettings(settings = window.KADIOR_SETTINGS) {
+  if (!settings || typeof settings !== "object") return;
+
+  // WhatsApp : numéro utilisé par tous les boutons, liens et formulaires
+  const wa = phoneDigits(settingText(settings, "whatsapp"));
+  if (/^\d{8,15}$/.test(wa) && wa !== WHATSAPP) {
+    WHATSAPP = wa;
+    document.querySelectorAll('a[href*="wa.me/"]').forEach(a => {
+      a.href = a.getAttribute("href").replace(/wa\.me\/\d+/, `wa.me/${WHATSAPP}`);
+    });
+  }
+
+  document.querySelectorAll("[data-setting]").forEach(el => {
+    const key = el.dataset.setting;
+    const value = settingText(settings, key);
+    if (!value) return;                                   // absent : texte de secours conservé
+    if (key === "phone" || key === "whatsapp") {
+      const digits = phoneDigits(value);
+      if (!/^\d{8,15}$/.test(digits)) return;
+      setSettingText(el, formatPhone(value));
+      if (key === "phone" && el.tagName === "A") el.href = `tel:+${digits}`;
+    } else if (key === "email") {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return;
+      setSettingText(el, value);
+      if (el.tagName === "A") el.href = `mailto:${value}`;
+    } else {
+      setSettingText(el, value);
+    }
+  });
+
+  const place = settingText(settings, "location");
+  if (place) {
+    document.querySelectorAll("[data-map-link]").forEach(a => {
+      a.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}`;
+    });
+  }
+
+  const socials = settings.socials && typeof settings.socials === "object" ? settings.socials : {};
+  document.querySelectorAll("[data-social]").forEach(a => {
+    const url = socials[a.dataset.social];
+    if (typeof url === "string" && /^https:\/\//i.test(url.trim())) a.href = url.trim();
+  });
+}
+
+// Paramètres frais reçus de Supabase pendant la visite : appliqués immédiatement
+document.addEventListener("kadior:settings", e => applySettings(e.detail));
+
+/* ============ CATALOGUE : MISE À JOUR SANS RECHARGEMENT ============
+   supabase-sync.js met à jour KADIOR_CATEGORIES / KADIOR_PRODUCTS puis émet
+   « kadior:products » (seulement si les données ont changé). On redessine alors
+   uniquement les zones catégories / produits de la page ouverte. */
+function refreshCatalogViews() {
+  syncCatalogData();
+  renderCategories();
+  renderProducts();
+  if (rerenderCatalog) rerenderCatalog();
+  if (rerenderProductPage) rerenderProductPage();
+  initEquipment();
+  // Éléments recréés : affichés sans rejouer l'animation, avec le secours « Photo à venir »
+  ["#categoryGrid", "#productGrid", "#catalogGrid", "#productDetail", "#relatedGrid", "#equipmentGrid"].forEach(sel => {
+    const root = $(sel);
+    if (!root) return;
+    root.querySelectorAll(".reveal, .reveal-card").forEach(el => el.classList.add("visible"));
+    setupImageFallbacks(root);
+  });
+}
+document.addEventListener("kadior:products", refreshCatalogViews);
 
 function setupActiveNav() {
   const page = document.body.dataset.page;
@@ -609,6 +755,7 @@ $("#newsletter")?.addEventListener("submit", e => {
 });
 
 validateCatalog();
+applySettings();
 renderCategories();
 renderProducts();
 initCatalog();

@@ -7,7 +7,13 @@
    1. Si une copie Supabase valide est en cache (localStorage), elle remplace
       les données de catalog.js AVANT le rendu de script.js.
    2. En arrière-plan, les données fraîches sont récupérées depuis Supabase
-      puis mises en cache pour le prochain chargement de page.
+      puis mises en cache pour le prochain chargement de page. Elles sont en
+      plus appliquées immédiatement à la page ouverte :
+      - paramètres du site (site_settings) : événement « kadior:settings »
+        (voir applySettings dans script.js) ;
+      - catégories et produits, seulement s'ils ont changé : événement
+        « kadior:products » (voir refreshCatalogViews dans script.js).
+      Une nouvelle synchronisation a lieu quand on revient sur l'onglet.
    3. Supabase non configuré, indisponible, ou données invalides :
       le site garde data/catalog.js et les valeurs de script.js (fallback).
    ===================================================================== */
@@ -15,6 +21,7 @@
 (function () {
   const CACHE_KEY = "kadior-supabase-cache-v1";
   const TIMEOUT_MS = 6000;
+  const REVISIT_MS = 5000;
   const cfg = window.KADIOR_SUPABASE || {};
   const url = String(cfg.url || "").replace(/\/+$/, "");
   const key = String(cfg.anonKey || "");
@@ -111,7 +118,16 @@
     });
   }
 
+  // Empreinte du catalogue : on ne redessine la page que si les données ont changé
+  const signature = (cats, prods) => JSON.stringify([cats, prods]);
+
+  let busy = false;   // une seule synchronisation à la fois
+  let lastRun = 0;
+
   function refresh() {
+    if (busy) return;
+    busy = true;
+    lastRun = Date.now();
     Promise.all([
       get("categories?select=id,name,label,description,image,image_focus,href,sort_order&order=sort_order"),
       get("products?select=id,name,description,price,price_label,currency,available,image,image_focus,rating,review_count,featured,sort_order,category:categories(name)&order=sort_order"),
@@ -130,17 +146,39 @@
         events: events.map(mapEvent),
         settings: Object.fromEntries(settings.filter(s => s && typeof s.key === "string").map(s => [s.key, s.value]))
       };
+      // Paramètres du site (adresse, horaires, contacts…) : appliqués tout de suite
+      // sur la page ouverte, sans attendre le prochain chargement
+      if (Object.keys(data.settings).length) {
+        window.KADIOR_SETTINGS = data.settings;
+        document.dispatchEvent(new CustomEvent("kadior:settings", { detail: data.settings }));
+      }
       if (!isValidEvents(data.events)) data.events = [];   // événements locaux conservés
       if (!isValid(data)) {
         console.warn("Supabase : données incomplètes, catalogue local conservé.");
         return;
       }
       try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch (e) { /* stockage indisponible */ }
+
+      // Catalogue (catégories + produits) : si différent de celui affiché, on met à jour
+      // les tableaux partagés et on prévient script.js, qui redessine la page ouverte
+      if (signature(KADIOR_CATEGORIES, KADIOR_PRODUCTS) !== signature(data.categories, data.products)) {
+        replaceArray(KADIOR_CATEGORIES, data.categories);
+        replaceArray(KADIOR_PRODUCTS, data.products);
+        document.dispatchEvent(new CustomEvent("kadior:products", {
+          detail: { categories: data.categories, products: data.products }
+        }));
+      }
     }).catch(err => {
       console.warn("Supabase indisponible, catalogue local utilisé :", err.message || err);
-    });
+    }).finally(() => { busy = false; });
   }
 
   if (document.readyState === "complete") refresh();
   else window.addEventListener("load", refresh, { once: true });
+
+  // Retour sur l'onglet (ex. après une modification dans l'admin) : nouvelle
+  // synchronisation, au plus une fois toutes les 5 secondes
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && Date.now() - lastRun > REVISIT_MS) refresh();
+  });
 })();
