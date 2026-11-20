@@ -200,3 +200,18 @@ textarea.mono { font: 13px/1.5 ui-monospace, Consolas, monospace; }
   .table td.actions { justify-content: flex-end; }
   .table td.actions::before { content: none; }
 }
+
+/* ---------- Logiciel de gestion : menu par groupes, rôles ---------- */
+.nav-group { flex: none; margin: 12px 14px 2px; font: 700 11px/1 var(--sans); letter-spacing: 1.5px;
+  text-transform: uppercase; color: rgba(255, 248, 236, .5); }
+.nav-group:first-child { margin-top: 0; }
+.user-role { display: inline-block; margin-top: 4px; color: var(--gold-light); font-weight: 700; }
+.section-title { font-size: 16px; color: var(--muted); font-family: var(--sans); text-transform: uppercase;
+  letter-spacing: 1px; margin: 18px 0 10px; }
+.check.inline { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--brown); }
+.check.inline input { width: 16px; height: 16px; accent-color: var(--gold); }
+.small { font-size: 12px; }
+.field input[type=password] { width: 100%; }
+@media (max-width: 860px) {
+  .nav-group { grid-column: 1 / -1; margin: 8px 2px 0; }
+}
