@@ -24,6 +24,7 @@ Objectif final : **un seul logiciel** pour toute l'entreprise. Il remplacera l'a
 | Page Promotions | Toutes les offres en cours, prix, date de fin (« Plus que 2 jours »), bouton Commander ; lien dans le menu | Fait, à tester |
 | Diaporamas | Promotions, box et galerie de l'accueil défilent toutes seules | Fait, à tester |
 | Box sur le site | Catégorie « Box » ; chaque box est un produit (contenu dans la description) ; section « Nos box » sur l'accueil | Fait, à tester |
+| Box dans le logiciel | L'admin crée les box (nom, type, prix, photo, contenu) ; publication automatique sur le site | Fait, à tester |
 
 ---
 
@@ -47,12 +48,13 @@ On avance **une étape à la fois**. Une étape commence seulement quand la pré
 ### Étape 1 — Tester la caisse simple *(fait)*
 Une journée complète de test : pétrisseur → pâtissier → caissière (restants puis caisse) → correction par l'admin.
 
-### Étape 2 — Le site : diaporamas et box *(en cours)*
+### Étape 2 — Le site : diaporamas et box *(fait)*
 - Les photos de la **galerie** et des **promotions** défilent toutes seules (diaporama).
 - Les **box** (salée, sucrée, mixte…) s'affichent sur le site comme des produits.
 
-### Étape 3 — Les box dans le logiciel
-- **L'admin crée chaque box** : son nom, son contenu (ex. 2 croissants + 2 cakes + 1 dakaroise) et son prix. Il peut les changer quand il veut.
+### Étape 3 — Les box dans le logiciel *(en cours)*
+- **L'admin crée chaque box** : nom, type (salée / sucrée / mixte), prix, photo et contenu (ex. 2 mini-croissants, 1 jus). Le contenu décrit la box : il n'a pas de prix à l'unité (produits plus petits ou préparés à part).
+- **La box se publie toute seule sur le site** (section « Nos box » et catalogue).
 - Les ventes passées gardent le contenu et le prix du jour de la vente.
 
 ### Étape 4 — La caisse enregistreuse
@@ -127,6 +129,7 @@ Stock, dépenses du mois, rapports, rôle Gestionnaire (contrôle des versements
 | `05_production.sql` | Production boulangerie : pains, sacs pétris, rendement, session matin / soir |
 | `06_restants_et_caisse.sql` | Pâtisserie, restants, caisse simple, recalcul automatique |
 | `07_site_box_bandeau.sql` | Catégorie « Box » (créée masquée) et informations de la bande animée |
+| `08_box.sql` | Les box du logiciel (contenu, prix) et leur publication automatique sur le site |
 
 ### Les fichiers
 - `index.html`, `promotions.html` et les autres pages, `style.css`, `script.js` : le site public.
@@ -135,7 +138,7 @@ Stock, dépenses du mois, rapports, rôle Gestionnaire (contrôle des versements
 - `data/supabase-sync.js` : charge les données de Supabase pour le site.
 - `admin/index.html` : le logiciel de gestion.
 - `admin/js/core.js` : outils communs ; `admin/js/crud.js` : listes et formulaires ; `admin/js/app.js` : connexion et menu (chargé en dernier).
-- `admin/modules/` : un fichier par écran (`tableau-de-bord.js`, `caisse.js`, `production.js`, `equipe.js`, `site-web.js`…). L'ordre des fichiers dans `admin/index.html` donne l'ordre du menu.
+- `admin/modules/` : un fichier par écran (`tableau-de-bord.js`, `caisse.js`, `production.js`, `box.js`, `equipe.js`, `site-web.js`…). L'ordre des fichiers dans `admin/index.html` donne l'ordre du menu.
 
 ### Connexion des employés
 Un employé se connecte avec son **identifiant** (ex. `adja`). Le logiciel le transforme en adresse technique `adja@equipe.lekadior.local` ; aucun e-mail n'est envoyé. Le rôle administrateur ne se donne qu'en SQL.

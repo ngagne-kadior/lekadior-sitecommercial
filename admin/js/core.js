@@ -412,6 +412,7 @@
     settings: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
     production: '<path d="M4 15c0-4 3.6-7 8-7s8 3 8 7v2H4v-2Z"/><path d="M8 11.5 9 17M12 10.5V17M16 11.5 15 17"/><path d="M3 20h18"/>',
     caisse: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/><path d="M7 6V4h10v2"/>',
+    box: '<path d="M3 8l9-5 9 5v8l-9 5-9-5V8Z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
     team: '<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5A5 5 0 0 1 21 19"/>'
   };
   KA.icon = name => `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">${KA.icons[name] || ""}</svg>`;

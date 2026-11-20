@@ -1,0 +1,1 @@
+Dans ce dépôt, sans modifier aucun fichier : ajoute admin/index.html, admin/admin.css, admin/js/core.js, admin/modules/box.js, supabase/08_box.sql et README.md, vérifie qu'aucun .xlsx, .env ou clé secrète n'est inclus, puis fais un commit "Logiciel de gestion : écran Box avec publication automatique sur le site" et un git push. Montre-moi git log --oneline -3 et git status.

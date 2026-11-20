@@ -307,3 +307,21 @@ textarea.mono { font: 13px/1.5 ui-monospace, Consolas, monospace; }
   .caisse-grid { grid-template-columns: 1fr; }
   .caisse-top .field input[type=text], .caisse-top .money { width: 100%; }
 }
+
+/* ---------- Box ---------- */
+.box-name { display: flex; align-items: center; gap: 10px; }
+.box-type { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+.box-type-sucree { background: #fbeaf0; color: #72243e; }
+.box-type-salee { background: #faece7; color: #712b13; }
+.box-type-mixte { background: #e1f5ee; color: #085041; }
+.box-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+.box-grid .field input, .box-grid .field select { width: 100%; }
+.box-lines { display: grid; gap: 8px; margin: 10px 0; }
+.box-line { display: grid; grid-template-columns: 80px 1.2fr 1.6fr 32px; gap: 8px; align-items: center; }
+.box-line input, .box-line select { width: 100%; min-width: 0; }
+.box-preview { margin-top: 12px; background: #f7f1e7; border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+@media (max-width: 860px) {
+  .box-grid { grid-template-columns: 1fr; }
+  .box-line { grid-template-columns: 64px 1fr 32px; }
+  .box-line .b-l { grid-column: 1 / -2; }
+}
