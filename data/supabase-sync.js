@@ -12,7 +12,12 @@
       - paramètres du site (site_settings) : événement « kadior:settings »
         (voir applySettings dans script.js) ;
       - catégories et produits, seulement s'ils ont changé : événement
-        « kadior:products » (voir refreshCatalogViews dans script.js).
+        « kadior:products » (voir refreshCatalogViews dans script.js) ;
+      - événements (table events), seulement s'ils ont changé : événement
+        « kadior:events » (voir renderEventViews dans script.js) ;
+      - promotions et galerie, demandées seulement par les pages qui les
+        affichent (#promoGrid, #galleryGrid), seulement si elles ont changé :
+        « kadior:promotions » et « kadior:gallery ». Pas de secours local.
       Une nouvelle synchronisation a lieu quand on revient sur l'onglet.
    3. Supabase non configuré, indisponible, ou données invalides :
       le site garde data/catalog.js et les valeurs de script.js (fallback).
@@ -67,6 +72,30 @@
     title: r.title || r.name, desc: r.description || ""
   });
 
+  const num = v => v === null || v === undefined || v === "" ? null : (Number.isFinite(Number(v)) ? Number(v) : null);
+
+  // Promotions : la RLS ne renvoie déjà que les promotions actives et dans leur période
+  const mapPromotion = r => ({
+    id: r.id, title: r.title, description: r.description || "",
+    productId: r.product_id || null, categoryId: r.category_id || null,
+    oldPrice: num(r.old_price), newPrice: num(r.new_price),
+    discountPercent: num(r.discount_percent), discountAmount: num(r.discount_amount),
+    startDate: r.start_date || null, endDate: r.end_date || null,
+    image: r.image || null, order: num(r.sort_order) ?? 0
+  });
+
+  // Galerie : la RLS ne renvoie que les photos actives, et les réalisations clients
+  // uniquement avec le consentement du client
+  const mapGalleryItem = r => ({
+    id: r.id, title: r.title || "", alt: r.alt || "", description: r.description || "",
+    image: r.image, theme: r.theme || null, featured: r.featured === true, order: num(r.sort_order) ?? 0
+  });
+
+  // Chaque élément est validé séparément ; un élément invalide est ignoré seul
+  const cleanList = (list, ok) => list.filter(ok);
+  const isValidPromotion = p => !!p && !!p.id && typeof p.title === "string" && !!p.title.trim();
+  const isValidGalleryItem = g => !!g && !!g.id && typeof g.image === "string" && !!g.image.trim();
+
   /* ---------- Validation : ne jamais remplacer le catalogue par des données incomplètes ---------- */
 
   const isPrice = v => v === null || (typeof v === "number" && Number.isFinite(v) && v >= 0);
@@ -83,9 +112,21 @@
     return catsOk && prodsOk;
   }
 
-  // Événements : liste complète exigée, sinon la liste locale de script.js est gardée
-  const isValidEvents = list => Array.isArray(list) && list.length > 0 &&
-    list.every(e => e && e.key && e.name && e.label && e.title && e.desc && e.image);
+  // Événements : chaque événement est validé séparément. Un événement incomplet est
+  // ignoré seul ; une liste vide (tous masqués dans l'admin) est une réponse valide.
+  // L'image est facultative : sans image, la page affiche « Photo à venir ».
+  const isCompleteEvent = e => !!e && typeof e.key === "string" && /^[a-z0-9-]+$/i.test(e.key) &&
+    !!e.name && !!e.label && !!e.title && !!e.desc;
+
+  function cleanEvents(list, warn) {
+    const seen = new Set();
+    return list.filter(e => {
+      const ok = isCompleteEvent(e) && !seen.has(e.key);
+      if (!ok && warn) console.warn("Supabase : événement incomplet ou en double ignoré :", (e && e.key) || e);
+      if (ok) seen.add(e.key);
+      return ok;
+    });
+  }
 
   /* ---------- 1. Appliquer le cache avant le rendu ---------- */
 
@@ -93,15 +134,36 @@
     if (Array.isArray(target)) target.splice(0, target.length, ...items);
   }
 
+  let cachedEvents = null;   // derniers événements Supabase connus (cache)
+  let cachedPromotions = null;
+  let cachedGallery = null;
   try {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
     if (cached && cached.source === url && isValid(cached)) {
       replaceArray(KADIOR_CATEGORIES, cached.categories);
       replaceArray(KADIOR_PRODUCTS, cached.products);
-      if (isValidEvents(cached.events)) window.KADIOR_EVENTS = cached.events;
+      // eventsSource marque les caches où la liste d'événements vient bien de Supabase
+      if (cached.eventsSource === "supabase" && Array.isArray(cached.events)) {
+        cachedEvents = cleanEvents(cached.events, false);
+        window.KADIOR_EVENTS = cachedEvents;
+      }
       if (cached.settings && typeof cached.settings === "object" && !Array.isArray(cached.settings)) window.KADIOR_SETTINGS = cached.settings;
+      // Promotions / galerie : dernier état Supabase connu (script.js refiltre les dates)
+      if (cached.promotionsSource === "supabase" && Array.isArray(cached.promotions)) {
+        cachedPromotions = cleanList(cached.promotions, isValidPromotion);
+        window.KADIOR_PROMOTIONS = cachedPromotions;
+      }
+      if (cached.gallerySource === "supabase" && Array.isArray(cached.gallery)) {
+        cachedGallery = cleanList(cached.gallery, isValidGalleryItem);
+        window.KADIOR_GALLERY = cachedGallery;
+      }
     }
   } catch (e) { /* cache illisible → fallback local */ }
+
+  // Pas d'événements en cache : script.js attend la réponse de Supabase (« kadior:events »)
+  // avant d'afficher la liste, et n'utilise son secours local qu'en cas d'échec
+  // (« kadior:events-unavailable »)
+  if (!Array.isArray(window.KADIOR_EVENTS)) window.KADIOR_EVENTS_PENDING = true;
 
   /* ---------- 2. Récupération en arrière-plan ---------- */
 
@@ -124,6 +186,21 @@
   let busy = false;   // une seule synchronisation à la fois
   let lastRun = 0;
 
+  // Promotions et galerie : demandées seulement par les pages qui les affichent
+  // (undefined = non demandé, null = requête en échec, [] = réponse valide vide)
+  const optional = (elementId, path) => document.getElementById(elementId)
+    ? get(path).catch(() => null)
+    : Promise.resolve(undefined);
+
+  // Met à jour la donnée partagée et prévient script.js, seulement si elle a changé
+  function publish(eventName, globalKey, fresh) {
+    if (!fresh) return;                        // non demandé ou échec : état affiché conservé
+    if (JSON.stringify(fresh) !== JSON.stringify(window[globalKey] ?? null)) {
+      window[globalKey] = fresh;
+      document.dispatchEvent(new CustomEvent(eventName, { detail: fresh }));
+    }
+  }
+
   function refresh() {
     if (busy) return;
     busy = true;
@@ -131,19 +208,34 @@
     Promise.all([
       get("categories?select=id,name,label,description,image,image_focus,href,sort_order&order=sort_order"),
       get("products?select=id,name,description,price,price_label,currency,available,image,image_focus,rating,review_count,featured,sort_order,category:categories(name)&order=sort_order"),
-      get("events?select=key,name,label,title,description,image,sort_order&order=sort_order").catch(() => []),
-      get("site_settings?select=key,value").catch(() => [])
-    ]).then(([cats, prods, events, settings]) => {
+      // null = requête des événements en échec (≠ liste vide, qui est une réponse valide)
+      get("events?select=key,name,label,title,description,image,sort_order&order=sort_order").catch(() => null),
+      get("site_settings?select=key,value").catch(() => []),
+      optional("promoGrid", "promotions?select=id,title,description,product_id,category_id,old_price,new_price,discount_percent,discount_amount,start_date,end_date,image,sort_order&order=sort_order"),
+      optional("galleryGrid", "gallery?select=id,title,alt,description,image,theme,featured,sort_order&order=featured.desc,sort_order.asc,created_at.desc&limit=8")
+    ]).then(([cats, prods, events, settings, promos, gallery]) => {
       if (!Array.isArray(cats) || !Array.isArray(prods)) throw new Error("réponse inattendue");
-      if (!Array.isArray(events)) events = [];
       if (!Array.isArray(settings)) settings = [];
+      const freshEvents = Array.isArray(events) ? cleanEvents(events.map(mapEvent), true) : null;
+      if (freshEvents) cachedEvents = freshEvents;
+      const freshPromotions = Array.isArray(promos) ? cleanList(promos.map(mapPromotion), isValidPromotion) : null;
+      if (freshPromotions) cachedPromotions = freshPromotions;
+      const freshGallery = Array.isArray(gallery) ? cleanList(gallery.map(mapGalleryItem), isValidGalleryItem) : null;
+      if (freshGallery) cachedGallery = freshGallery;
       const data = {
         source: url,
         savedAt: new Date().toISOString(),
         categories: cats.map(mapCategory),
         // produit dont la catégorie est masquée → category null → écarté
         products: prods.map(mapProduct).filter(p => p.category),
-        events: events.map(mapEvent),
+        // événements : données fraîches, sinon derniers événements Supabase connus
+        events: cachedEvents,
+        eventsSource: cachedEvents ? "supabase" : null,
+        // promotions / galerie : données fraîches, sinon dernier état connu (autres pages)
+        promotions: cachedPromotions,
+        promotionsSource: cachedPromotions ? "supabase" : null,
+        gallery: cachedGallery,
+        gallerySource: cachedGallery ? "supabase" : null,
         settings: Object.fromEntries(settings.filter(s => s && typeof s.key === "string").map(s => [s.key, s.value]))
       };
       // Paramètres du site (adresse, horaires, contacts…) : appliqués tout de suite
@@ -152,7 +244,18 @@
         window.KADIOR_SETTINGS = data.settings;
         document.dispatchEvent(new CustomEvent("kadior:settings", { detail: data.settings }));
       }
-      if (!isValidEvents(data.events)) data.events = [];   // événements locaux conservés
+      // Événements : mis à jour et signalés à script.js seulement s'ils ont changé
+      if (freshEvents) {
+        if (JSON.stringify(freshEvents) !== JSON.stringify(window.KADIOR_EVENTS ?? null)) {
+          window.KADIOR_EVENTS = freshEvents;
+          document.dispatchEvent(new CustomEvent("kadior:events", { detail: freshEvents }));
+        }
+      } else {
+        document.dispatchEvent(new CustomEvent("kadior:events-unavailable"));
+      }
+      // Promotions et galerie : indépendantes du reste (un échec n'empêche rien d'autre)
+      publish("kadior:promotions", "KADIOR_PROMOTIONS", freshPromotions);
+      publish("kadior:gallery", "KADIOR_GALLERY", freshGallery);
       if (!isValid(data)) {
         console.warn("Supabase : données incomplètes, catalogue local conservé.");
         return;
@@ -170,6 +273,7 @@
       }
     }).catch(err => {
       console.warn("Supabase indisponible, catalogue local utilisé :", err.message || err);
+      document.dispatchEvent(new CustomEvent("kadior:events-unavailable"));
     }).finally(() => { busy = false; });
   }
 

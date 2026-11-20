@@ -114,16 +114,28 @@
         <div>
           <div class="eyebrow gold-text">— NOUS TROUVER</div>
           <h2>Comment nous trouver</h2>
+          <p class="map-subtitle">Retrouvez Le Kadior à Mbour</p>
         </div>
       </div>
-      <!-- Google Maps : remplacer le contenu de .map-box par l'iframe d'intégration Google Maps de la boutique. -->
+      <!-- Emplacement officiel FIXE (14.4289293, -16.9793453) : intégration Google Maps sans clé API,
+           centrée (ll) et marquée (q) sur ce point. La carte est figée pour que l'étiquette « Le Kadior »
+           reste sur le marqueur ; un clic ouvre le lien officiel. Pas de data-map-link : script.js ne doit
+           pas remplacer ce lien par une recherche générique « Mbour ». -->
       <div class="map-box reveal" id="map">
+        <div class="map-view">
+          <iframe class="map-frame" title="Carte : emplacement exact de Le Kadior à Mbour" loading="lazy" referrerpolicy="no-referrer-when-downgrade" tabindex="-1" src="https://maps.google.com/maps?q=14.4289293,-16.9793453&amp;ll=14.4289293,-16.9793453&amp;z=18&amp;t=m&amp;hl=fr&amp;output=embed"></iframe>
+          <span class="map-point" aria-hidden="true"></span>
+          <div class="map-marker" aria-hidden="true">
+            <strong>📍 Le Kadior</strong>
+            <small>Boulangerie • Pâtisserie • Viennoiserie</small>
+          </div>
+          <a class="map-hit" target="_blank" rel="noopener noreferrer" href="https://maps.app.goo.gl/7k3JZthDQtHhdENGA" aria-label="Ouvrir l'emplacement de Le Kadior dans Google Maps"></a>
+        </div>
         <div class="map-card">
-          <span class="map-pin" aria-hidden="true">📍</span>
-          <strong>Le Kadior</strong>
-          <span data-setting="address">Mbour, Grand-mbour, route de l'hopital</span>
-          <small>Carte interactive bientôt disponible</small>
-          <a class="btn btn-gold" data-map-link target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&amp;query=Mbour%2C%20S%C3%A9n%C3%A9gal">Ouvrir dans Google Maps →</a>
+          <strong class="map-name"><span class="map-pin" aria-hidden="true">📍</span> Le Kadior</strong>
+          <span class="map-tagline">Le Kadior — Boulangerie • Pâtisserie • Viennoiserie</span>
+          <span class="map-address" data-setting="address">Mbour, Grand-Mbour, route de l'hôpital, En face Mbour FM</span>
+          <a class="btn btn-gold map-btn" target="_blank" rel="noopener noreferrer" href="https://maps.app.goo.gl/7k3JZthDQtHhdENGA">Voir l'itinéraire →</a>
         </div>
       </div>
     </section>

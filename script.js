@@ -23,9 +23,13 @@ function syncCatalogData() {
 }
 syncCatalogData();
 
-// Types d'événements : table Supabase « events » si disponible, sinon liste locale ci-dessous
-const eventTypes = window.KADIOR_EVENTS?.length ? window.KADIOR_EVENTS : [
-  {key:"anniversaire", name:"Anniversaire", label:"un anniversaire", image:"assets/images/event-anniversaire.jpg",
+/* Types d'événements : table Supabase « events » (cache, puis données fraîches via
+   l'événement « kadior:events », qui redessine la page ouverte).
+   Une liste vide venant de Supabase est respectée (tous les événements masqués).
+   LOCAL_EVENTS n'est utilisé que si Supabase est absent ou injoignable.
+   Copie des événements de Supabase au 2026-09-28 (même forme que supabase-sync.js). */
+const LOCAL_EVENTS = [
+  {key:"anniversaire", name:"Anniversaire", label:"un anniversaire", image:"https://yvfwhjixhqxejvhefvyx.supabase.co/storage/v1/object/public/lekadior-images/events/1790506566665-7z9hfh.jpg",
    title:"Un gâteau à l'image de la personne fêtée",
    desc:"Parfums, taille, couleurs, décoration, prénom : nous créons avec vous le gâteau d'anniversaire qui fera briller les yeux de vos invités, petits et grands."},
   {key:"mariage", name:"Mariage", label:"un mariage", image:"assets/images/event-mariage.jpg",
@@ -41,6 +45,12 @@ const eventTypes = window.KADIOR_EVENTS?.length ? window.KADIOR_EVENTS : [
    title:"Pauses, séminaires et réceptions",
    desc:"Viennoiseries du matin, snacks et gâteaux pour vos réunions, séminaires, lancements et réceptions d'entreprise. Livraison possible."}
 ];
+
+// Pas d'événements en cache mais Supabase configuré : on attend sa réponse avant d'afficher
+// la liste (évite d'afficher le secours puis de le remplacer). Secours si pas de réponse.
+let eventsPending = window.KADIOR_EVENTS_PENDING === true;
+let eventTypes = Array.isArray(window.KADIOR_EVENTS) ? window.KADIOR_EVENTS : (eventsPending ? [] : LOCAL_EVENTS);
+const EVENTS_WAIT_MS = 12000;
 
 /* ============ OUTILS ============ */
 
@@ -303,31 +313,89 @@ function initProductPage() {
   rerenderProductPage = draw;
 }
 
-/* ============ PAGE ÉVÉNEMENTS ============ */
+/* ============ ÉVÉNEMENTS (page Événements, formulaire de devis, accueil) ============ */
 
-function initEvents() {
+// Liste des événements (evenements.html). Sans image : « Photo à venir ».
+function renderEventList() {
   const list = $("#eventList");
   if (!list) return;
   list.innerHTML = eventTypes.map((ev, i) => `
-    <article class="event-row reveal" id="${ev.key}">
-      <div class="media event-media">
-        <img src="${ev.image}" alt="${ev.name}" loading="lazy" decoding="async" width="900" height="600">
+    <article class="event-row reveal" id="${escapeHtml(ev.key)}">
+      <div class="media event-media${ev.image ? "" : " is-missing"}">
+        ${ev.image ? `<img src="${escapeHtml(ev.image)}" alt="${escapeHtml(ev.name)}" loading="lazy" decoding="async" width="900" height="600">` : ""}
       </div>
       <div class="event-row-body">
         <span class="event-num">0${i + 1}</span>
-        <div class="eyebrow gold-text">— ${ev.name.toUpperCase()}</div>
-        <h2>${ev.title}</h2>
-        <p>${ev.desc}</p>
+        <div class="eyebrow gold-text">— ${escapeHtml(ev.name.toUpperCase())}</div>
+        <h2>${escapeHtml(ev.title)}</h2>
+        <p>${escapeHtml(ev.desc)}</p>
         <div class="event-row-actions">
           <a class="btn btn-gold" target="_blank" rel="noopener" href="${whatsappLink(`Bonjour Le Kadior, je souhaite demander un devis pour ${ev.label}.`)}">${WA_ICON}<span>Demander un devis</span></a>
-          <a class="btn btn-soft" href="#devis" data-event-type="${ev.name}">Remplir le formulaire</a>
+          <a class="btn btn-soft" href="#devis" data-event-type="${escapeHtml(ev.name)}">Remplir le formulaire</a>
         </div>
       </div>
     </article>`).join("");
+}
 
+// Options du formulaire de devis : la sélection en cours est conservée si elle existe encore
+function renderEventOptions() {
   const select = $("#eventType");
-  if (select) {
-    select.insertAdjacentHTML("beforeend", eventTypes.map(ev => `<option>${ev.name}</option>`).join("") + "<option>Autre</option>");
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = `<option value="">Choisir…</option>` +
+    eventTypes.map(ev => `<option>${escapeHtml(ev.name)}</option>`).join("") + "<option>Autre</option>";
+  if ([...select.options].some(o => o.value === current)) select.value = current;
+}
+
+// Accueil : étiquettes de la section « Gâteaux & Événements » (événements visibles)
+function renderEventChips() {
+  const box = $(".event-chips");
+  if (!box || eventsPending) return;          // en attente : étiquettes du HTML conservées
+  box.innerHTML = eventTypes.map(ev => `<span>${escapeHtml(ev.name)}</span>`).join("");
+  box.hidden = eventTypes.length === 0;
+}
+
+// « Voir nos prestations » : vers le premier événement affiché, sinon vers la liste
+function updateFirstEventLink() {
+  document.querySelectorAll("[data-first-event-link]").forEach(a => {
+    a.href = eventTypes.length ? `#${eventTypes[0].key}` : "#eventList";
+  });
+}
+
+function renderEventViews(update = false) {
+  renderEventList();
+  renderEventOptions();
+  renderEventChips();
+  updateFirstEventLink();
+  const list = $("#eventList");
+  if (update && list) {
+    list.querySelectorAll(".reveal").forEach(el => el.classList.add("visible"));
+    setupImageFallbacks(list);
+  }
+}
+
+// Nouvelle liste d'événements (Supabase, ou secours local) : rendu sans rechargement
+function applyEvents(list) {
+  const wasPending = eventsPending;
+  eventsPending = false;
+  eventTypes = list;
+  renderEventViews(true);
+  // Arrivée avec une ancre (#mariage…) pendant l'attente : on s'y positionne une fois la liste affichée
+  if (wasPending && location.hash) {
+    const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (target && $("#eventList")?.contains(target)) requestAnimationFrame(() => target.scrollIntoView({behavior: "instant", block: "start"}));
+  }
+}
+
+document.addEventListener("kadior:events", e => applyEvents(Array.isArray(e.detail) ? e.detail : []));
+// Supabase injoignable : secours local, seulement si aucune liste n'est encore affichée
+document.addEventListener("kadior:events-unavailable", () => { if (eventsPending) applyEvents(LOCAL_EVENTS); });
+
+function initEvents() {
+  renderEventViews();
+  const list = $("#eventList");
+  const select = $("#eventType");
+  if (list && select) {
     list.addEventListener("click", e => {
       const link = e.target.closest("[data-event-type]");
       if (link) select.value = link.dataset.eventType;
@@ -335,6 +403,130 @@ function initEvents() {
   }
   const date = $("#eventDate");
   if (date) date.min = new Date().toISOString().slice(0, 10);
+  // Filet de sécurité : sans réponse de Supabase, le secours local est affiché
+  if (eventsPending) setTimeout(() => { if (eventsPending) applyEvents(LOCAL_EVENTS); }, EVENTS_WAIT_MS);
+}
+
+/* ============ PROMOTIONS & GALERIE (accueil) ============
+   Données Supabase uniquement (cache, puis « kadior:promotions » / « kadior:gallery »).
+   Pas de secours local : une section sans donnée est masquée.
+   La base ne renvoie que les promotions actives et dans leur période, et les photos
+   autorisées (réalisation client = consentement obligatoire). */
+
+let promotions = Array.isArray(window.KADIOR_PROMOTIONS) ? window.KADIOR_PROMOTIONS : [];
+let galleryItems = Array.isArray(window.KADIOR_GALLERY) ? window.KADIOR_GALLERY : [];
+const GALLERY_MAX = 8;
+
+const formatFcfa = n => `${String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} FCFA`;
+
+// Date du jour à Mbour (UTC+0, comme la base) au format AAAA-MM-JJ
+const todayMbour = () => new Date().toISOString().slice(0, 10);
+
+// Refiltrage par date côté navigateur (cache, page ouverte au passage de minuit)
+const isPromotionCurrent = (p, today) => (!p.startDate || p.startDate <= today) && (!p.endDate || p.endDate >= today);
+
+// Ancien prix : old_price, sinon prix actuel du produit. Nouveau prix : new_price, sinon
+// calculé depuis la remise (% ou FCFA) quand l'ancien prix est connu.
+function promotionPricing(p, product) {
+  const productPrice = product && typeof product.price === "number" ? product.price : null;
+  const base = p.oldPrice ?? productPrice;
+  let newPrice = p.newPrice;
+  if (newPrice == null && base != null) {
+    if (p.discountPercent != null) newPrice = Math.round(base * (1 - p.discountPercent / 100));
+    else if (p.discountAmount != null) newPrice = Math.max(0, base - p.discountAmount);
+  }
+  const reduced = base != null && newPrice != null && newPrice < base;
+  let badge = null;
+  if (p.discountPercent != null) badge = `−${String(p.discountPercent).replace(".", ",")} %`;
+  else if (reduced && Math.round((1 - newPrice / base) * 100) >= 1) badge = `−${Math.round((1 - newPrice / base) * 100)} %`;
+  else if (p.discountAmount != null) badge = `−${formatFcfa(p.discountAmount)}`;
+  return { oldPrice: reduced ? base : null, newPrice, badge };
+}
+
+function promotionCard(p, i) {
+  const product = p.productId ? products.find(x => x.id === p.productId) : null;
+  const category = p.categoryId ? KADIOR_CATEGORIES.find(c => c.id === p.categoryId) : null;
+  const url = product ? productUrl(product)
+    : category ? (category.href || `produits.html?cat=${encodeURIComponent(category.name)}`) : "produits.html";
+  const image = p.image || (product && product.image) || (category && category.image) || "";
+  const target = product ? product.name : category ? `Catégorie ${category.label || category.name}` : "Le Kadior";
+  const { oldPrice, newPrice, badge } = promotionPricing(p, product);
+  const price = newPrice != null
+    ? `${oldPrice != null ? `<del class="promo-old">${formatFcfa(oldPrice)}</del>` : ""}<span>${formatFcfa(newPrice)}</span>`
+    : (badge ? `<span>${escapeHtml(badge)}</span>` : "");
+  return `
+    <article class="product-card promo-card reveal-card" style="--delay:${i * 70}ms">
+      <a class="media product-img${image ? "" : " is-missing"}" href="${escapeHtml(url)}" aria-label="${escapeHtml(p.title)}">
+        ${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(p.title)}" loading="lazy" decoding="async" width="400" height="400">` : ""}
+        ${badge ? `<span class="promo-badge">${escapeHtml(badge)}</span>` : ""}
+      </a>
+      <div class="product-body">
+        <span class="product-cat">${escapeHtml(target)}</span>
+        <h3><a href="${escapeHtml(url)}">${escapeHtml(p.title)}</a></h3>
+        ${price ? `<div class="price">${price}</div>` : ""}
+        ${p.description ? `<p class="promo-desc">${escapeHtml(p.description)}</p>` : ""}
+        ${p.endDate ? `<small class="promo-period">Jusqu'au ${escapeHtml(formatDate(p.endDate))}</small>` : ""}
+      </div>
+    </article>`;
+}
+
+// Section entièrement masquée s'il n'y a aucune promotion en cours. Une promotion dont le
+// produit ou la catégorie n'est plus visible sur le site n'est pas affichée.
+function renderPromotions(update = false) {
+  const section = $("#promotions");
+  const grid = $("#promoGrid");
+  if (!section || !grid) return;
+  const today = todayMbour();
+  const list = promotions
+    .filter(p => isPromotionCurrent(p, today))
+    .filter(p => (!p.productId || products.some(x => x.id === p.productId)) &&
+                 (!p.categoryId || KADIOR_CATEGORIES.some(c => c.id === p.categoryId)))
+    .sort((a, b) => a.order - b.order);
+  grid.innerHTML = list.map(promotionCard).join("");
+  section.hidden = list.length === 0;
+  if (update) {
+    grid.querySelectorAll(".reveal-card").forEach(el => el.classList.add("visible"));
+    setupImageFallbacks(grid);
+  }
+}
+
+// Galerie : 8 photos au plus, mises en avant d'abord puis ordre d'affichage
+function renderGallery(update = false) {
+  const section = $("#galerie");
+  const grid = $("#galleryGrid");
+  if (!section || !grid) return;
+  const list = [...galleryItems].sort((a, b) => (b.featured - a.featured) || (a.order - b.order)).slice(0, GALLERY_MAX);
+  grid.innerHTML = list.map((g, i) => `
+    <figure class="gallery-item reveal-card" style="--delay:${i * 60}ms">
+      <div class="media gallery-img">
+        <img src="${escapeHtml(g.image)}" alt="${escapeHtml(g.alt || g.title || "Réalisation Le Kadior")}" loading="lazy" decoding="async" width="600" height="600">
+      </div>
+      ${g.title ? `<figcaption>${escapeHtml(g.title)}</figcaption>` : ""}
+    </figure>`).join("");
+  section.hidden = list.length === 0;
+  if (update) {
+    grid.querySelectorAll(".reveal-card").forEach(el => el.classList.add("visible"));
+    setupImageFallbacks(grid);
+  }
+}
+
+document.addEventListener("kadior:promotions", e => { promotions = Array.isArray(e.detail) ? e.detail : []; renderPromotions(true); });
+document.addEventListener("kadior:gallery", e => { galleryItems = Array.isArray(e.detail) ? e.detail : []; renderGallery(true); });
+// Produits ou catégories modifiés : noms, prix et images des promotions recalculés
+document.addEventListener("kadior:products", () => renderPromotions(true));
+
+function initPromotionsAndGallery() {
+  renderPromotions();
+  renderGallery();
+  // Page ouverte au passage de minuit (heure de Mbour) : les promotions sont refiltrées
+  if ($("#promoGrid")) {
+    const schedule = () => {
+      const now = new Date();
+      const nextDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+      setTimeout(() => { renderPromotions(true); schedule(); }, nextDay - now.getTime() + 1000);
+    };
+    schedule();
+  }
 }
 
 /* ============ PAGE MATÉRIEL ============ */
@@ -761,6 +953,7 @@ renderProducts();
 initCatalog();
 initProductPage();
 initEvents();
+initPromotionsAndGallery();
 initEquipment();
 setupWhatsAppForms();
 setupImageFallbacks();
