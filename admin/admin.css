@@ -215,3 +215,38 @@ textarea.mono { font: 13px/1.5 ui-monospace, Consolas, monospace; }
 @media (max-width: 860px) {
   .nav-group { grid-column: 1 / -1; margin: 8px 2px 0; }
 }
+
+/* ---------- Production (écran pétrisseur, repris du logiciel Lovable) ---------- */
+.prod-wrap { max-width: 1020px; margin: 0 auto; }
+.prod-head .sub { margin: 4px 0 0; font-size: 13px; }
+.prod-card { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow);
+  padding: 18px 20px; display: flex; gap: 14px 18px; align-items: flex-end; flex-wrap: wrap; }
+.prod-card .field { margin: 0; }
+.prod-card .field > label { display: block; font-weight: 600; font-size: 13px; color: var(--text); margin-bottom: 6px; }
+.prod-top { justify-content: space-between; align-items: center; }
+.prod-top input[type=date] { width: 200px; }
+.session-switch { display: inline-flex; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: #f5ecdd; }
+.session-switch button { border: 0; background: transparent; padding: 9px 22px; border-radius: 9px; cursor: pointer;
+  font: 700 13px var(--sans); letter-spacing: .5px; color: var(--muted); }
+.session-switch button.on { background: var(--brown); color: var(--cream); box-shadow: 0 2px 6px rgba(36, 21, 15, .25); }
+.prod-title { margin: 28px 0 12px; font-size: 17px; text-transform: uppercase; letter-spacing: .3px; }
+.prod-sacs #sacs-entiers { width: 140px; }
+.prod-sacs select { min-width: 170px; }
+.pill { background: #f5ecdd; border-radius: 999px; padding: 8px 14px; font-size: 13px; }
+.prod-table { margin-top: 14px; border-radius: 18px; }
+.prod-table .table th, .prod-table .table td { text-align: center; }
+.prod-table .table td.pain { font-weight: 600; }
+.prod-table .table td.total { font-weight: 700; color: var(--brown); }
+.prod-table input.num { width: 72px; height: 32px; padding: 4px 6px; text-align: center; }
+.rendement { margin-top: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  background: #efe5d8; border-radius: 16px; padding: 14px 18px; }
+.rendement span { font: 700 14px var(--serif); text-transform: uppercase; color: var(--dark); }
+.rendement strong { font: 700 18px var(--serif); color: var(--dark); }
+.prod-actions { margin-top: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.btn-brown { background: var(--brown); border-color: var(--brown); color: var(--cream); border-radius: 8px; }
+.btn-brown:hover { background: var(--dark); border-color: var(--dark); }
+@media (max-width: 860px) {
+  .prod-top input[type=date], .prod-sacs #sacs-entiers, .prod-sacs select { width: 100%; }
+  .prod-card .field { flex: 1 1 100%; }
+  .prod-table .table td { text-align: right; }
+}

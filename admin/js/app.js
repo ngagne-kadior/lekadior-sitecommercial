@@ -38,8 +38,10 @@
       if (!g) groups.push(g = { name: m.group || null, items: [] });
       g.items.push(m);
     }
+    // Un seul groupe (ex. pétrisseur) : pas de titre de groupe
+    const titled = groups.length > 1;
     $("#nav").innerHTML = groups.map(g =>
-      (g.name ? `<div class="nav-group">${esc(g.name)}</div>` : "") +
+      (g.name && titled ? `<div class="nav-group">${esc(g.name)}</div>` : "") +
       g.items.map(m => `<a href="#${esc(m.id)}" data-section="${esc(m.id)}">${KA.icon(m.icon)}<span>${esc(m.label)}</span></a>`).join("")
     ).join("");
   }
@@ -91,7 +93,8 @@
     KA.state.user = session.user;
     KA.state.profile = profile;
     const name = profile.full_name || profile.username || profile.email || session.user.email || "";
-    $("#user-email").innerHTML = `${esc(name)}<br><span class="user-role">${esc(KA.ROLES[profile.role] || profile.role)}</span>`;
+    const shift = profile.session ? " " + profile.session.charAt(0).toUpperCase() + profile.session.slice(1) : "";
+    $("#user-email").innerHTML = `${esc(name)}<br><span class="user-role">${esc((KA.ROLES[profile.role] || profile.role) + shift)}</span>`;
     $("#site-link").hidden = !KA.isAdmin();
     buildMenu();
     $("#boot").hidden = true;

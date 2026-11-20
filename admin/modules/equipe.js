@@ -4,7 +4,7 @@
    Comptes des employés : création (identifiant + mot de passe), rôle,
    activation / désactivation, nouveau mot de passe.
    Accès : administrateur uniquement. Toutes les opérations passent par
-   les fonctions SQL de supabase/04_equipe_et_roles.sql, qui revérifient
+   les fonctions SQL de supabase/04 et 05, qui revérifient
    les droits : rien ne se fait par écriture directe dans les tables.
    ===================================================================== */
 
@@ -20,11 +20,16 @@
 
   async function loadStaff() {
     const { data, error } = await sb.from("profiles")
-      .select("id,email,role,full_name,username,phone,active,created_at")
+      .select("id,email,role,full_name,username,phone,active,session,created_at")
       .order("role").order("full_name", { nullsFirst: false });
     if (error) throw error;
     return data || [];
   }
+
+  const SESSIONS = [["", "Non fixée (choisit matin ou soir)"], ["matin", "Matin"], ["soir", "Soir"]];
+  const sessionField = { key: "session", label: "Session de travail", type: "select", noEmpty: true, options: SESSIONS,
+    help: "Pétrisseur ou caissier : s'il travaille toujours le matin ou toujours le soir, il ne verra que cette session." };
+  const sessionLabel = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 
   const roleBadge = r => r.role === "admin" ? badge(KA.ROLES.admin, "gold")
     : r.role === "user" ? badge(KA.ROLES.user, "off") : badge(KA.ROLES[r.role] || r.role, "ok");
@@ -68,7 +73,7 @@
         return `<tr>
           <td data-label="Nom"><strong>${esc(r.full_name || (r.role === "admin" ? "Administrateur" : "—"))}</strong></td>
           <td data-label="Identifiant"><code>${esc(login(r))}</code></td>
-          <td data-label="Rôle">${roleBadge(r)}</td>
+          <td data-label="Rôle">${roleBadge(r)}${r.session ? ` <span class="muted small">${esc(sessionLabel(r.session))}</span>` : ""}</td>
           <td data-label="Téléphone">${esc(r.phone || "—")}</td>
           <td data-label="Statut">${r.active ? badge("Actif", "ok") : badge("Désactivé", "off")}</td>
           <td class="actions">${actions}</td></tr>`;
@@ -130,6 +135,7 @@
         patternMessage: "3 à 30 caractères : lettres minuscules, chiffres, point ou tiret, sans espace ni accent.",
         help: "Ex. « adja » ou « amath.badji ». Non modifiable ensuite." },
       { key: "role", label: "Rôle", type: "select", required: true, noEmpty: true, options: roleOptions(false) },
+      sessionField,
       { key: "phone", label: "Téléphone", type: "text" },
       Object.assign({ group: "Mot de passe" }, passwordFields[0]),
       passwordFields[1]
@@ -154,7 +160,7 @@
       if (pwdError) return showError(pwdError);
       const ok = await submitting(form, showError, () => KA.rpc("kadior_create_employee", {
         p_username: values.username, p_full_name: values.full_name, p_role: values.role,
-        p_password: values.password, p_phone: values.phone
+        p_password: values.password, p_phone: values.phone, p_session: values.session || null
       }));
       if (!ok) return;
       KA.toast(`Compte créé. Identifiant : ${values.username}`);
@@ -179,6 +185,7 @@
       { key: "login", label: "Identifiant de connexion", type: "readonly" },
       { key: "full_name", label: "Nom complet", type: "text", required: true },
       { key: "role", label: "Rôle", type: "select", required: true, noEmpty: true, options: roleOptions(true) },
+      sessionField,
       { key: "phone", label: "Téléphone", type: "text" },
       { key: "active", label: "Compte actif (peut se connecter)", type: "bool",
         help: "Décocher bloque immédiatement la connexion et ferme les sessions ouvertes." }
@@ -196,7 +203,7 @@
           !window.confirm(`Désactiver le compte de « ${values.full_name} » ? Il ne pourra plus se connecter.`)) return;
       const ok = await submitting(form, showError, () => KA.rpc("kadior_update_employee", {
         p_user: row.id, p_full_name: values.full_name, p_role: values.role,
-        p_phone: values.phone, p_active: values.active
+        p_phone: values.phone, p_active: values.active, p_session: values.session || null
       }));
       if (!ok) return;
       KA.toast("Employé mis à jour.");

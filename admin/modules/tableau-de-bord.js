@@ -81,8 +81,9 @@
 
   KA.register({
     id: "dashboard", label: "Tableau de bord", group: null, icon: "dashboard",
-    // Tous les rôles de l'équipe : l'admin voit la vue d'ensemble, les autres leur accueil
-    roles: KA.STAFF_ROLES,
+    // L'admin voit la vue d'ensemble, les autres leur accueil.
+    // Le pétrisseur n'a pas de tableau de bord : il arrive directement sur Production.
+    roles: KA.STAFF_ROLES.filter(r => r !== "petrisseur"),
     render() { return KA.isAdmin() ? renderAdmin() : renderStaffHome(); }
   });
 })();

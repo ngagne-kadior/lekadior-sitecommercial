@@ -398,6 +398,7 @@
     promotions: '<path d="M3 12V4h8l10 10-8 8L3 12Z"/><circle cx="7.5" cy="8.5" r="1.5"/>',
     gallery: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>',
     settings: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+    production: '<path d="M4 15c0-4 3.6-7 8-7s8 3 8 7v2H4v-2Z"/><path d="M8 11.5 9 17M12 10.5V17M16 11.5 15 17"/><path d="M3 20h18"/>',
     team: '<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5A5 5 0 0 1 21 19"/>'
   };
   KA.icon = name => `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">${KA.icons[name] || ""}</svg>`;
