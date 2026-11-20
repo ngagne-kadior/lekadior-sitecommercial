@@ -211,8 +211,8 @@
       // null = requête des événements en échec (≠ liste vide, qui est une réponse valide)
       get("events?select=key,name,label,title,description,image,sort_order&order=sort_order").catch(() => null),
       get("site_settings?select=key,value").catch(() => []),
-      optional("promoGrid", "promotions?select=id,title,description,product_id,category_id,old_price,new_price,discount_percent,discount_amount,start_date,end_date,image,sort_order&order=sort_order"),
-      optional("galleryGrid", "gallery?select=id,title,alt,description,image,theme,featured,sort_order&order=featured.desc,sort_order.asc,created_at.desc&limit=8")
+      optional(document.getElementById("promoGrid") ? "promoGrid" : "topTicker", "promotions?select=id,title,description,product_id,category_id,old_price,new_price,discount_percent,discount_amount,start_date,end_date,image,sort_order&order=sort_order"),
+      optional("galleryGrid", "gallery?select=id,title,alt,description,image,theme,featured,sort_order&order=featured.desc,sort_order.asc,created_at.desc&limit=24")
     ]).then(([cats, prods, events, settings, promos, gallery]) => {
       if (!Array.isArray(cats) || !Array.isArray(prods)) throw new Error("réponse inattendue");
       if (!Array.isArray(settings)) settings = [];

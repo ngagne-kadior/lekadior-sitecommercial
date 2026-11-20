@@ -415,7 +415,7 @@ function initEvents() {
 
 let promotions = Array.isArray(window.KADIOR_PROMOTIONS) ? window.KADIOR_PROMOTIONS : [];
 let galleryItems = Array.isArray(window.KADIOR_GALLERY) ? window.KADIOR_GALLERY : [];
-const GALLERY_MAX = 8;
+const GALLERY_MAX = 24;   // diaporama : jusqu'à 24 photos
 
 const formatFcfa = n => `${String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} FCFA`;
 
@@ -443,6 +443,36 @@ function promotionPricing(p, product) {
   return { oldPrice: reduced ? base : null, newPrice, badge };
 }
 
+// Fin de promotion : « Dernier jour », « Plus que N jours » (≤ 3 jours), sinon la date
+// « 30 novembre » (année ajoutée seulement si différente de l'année en cours)
+function longDay(iso) {
+  const d = new Date(iso + "T12:00:00Z");
+  const opts = { day: "numeric", month: "long", timeZone: "UTC" };
+  if (d.getUTCFullYear() !== new Date().getUTCFullYear()) opts.year = "numeric";
+  return d.toLocaleDateString("fr-FR", opts);
+}
+function daysLeft(endDate) {
+  if (!endDate) return null;
+  return Math.round((Date.parse(endDate + "T00:00:00Z") - Date.parse(todayMbour() + "T00:00:00Z")) / 86400000);
+}
+function promoPeriodHtml(p) {
+  const d = daysLeft(p.endDate);
+  if (d === null) return "";
+  if (d <= 0) return `<small class="promo-period promo-soon">Dernier jour</small>`;
+  if (d <= 3) return `<small class="promo-period promo-soon">Plus que ${d} jour${d > 1 ? "s" : ""}</small>`;
+  return `<small class="promo-period">Jusqu'au ${escapeHtml(longDay(p.endDate))}</small>`;
+}
+
+// Promotions en cours, visibles (produit ou catégorie encore affichés), triées
+function currentPromotions() {
+  const today = todayMbour();
+  return promotions
+    .filter(p => isPromotionCurrent(p, today))
+    .filter(p => (!p.productId || products.some(x => x.id === p.productId)) &&
+                 (!p.categoryId || KADIOR_CATEGORIES.some(c => c.id === p.categoryId)))
+    .sort((a, b) => a.order - b.order);
+}
+
 function promotionCard(p, i) {
   const product = p.productId ? products.find(x => x.id === p.productId) : null;
   const category = p.categoryId ? KADIOR_CATEGORIES.find(c => c.id === p.categoryId) : null;
@@ -465,7 +495,12 @@ function promotionCard(p, i) {
         <h3><a href="${escapeHtml(url)}">${escapeHtml(p.title)}</a></h3>
         ${price ? `<div class="price">${price}</div>` : ""}
         ${p.description ? `<p class="promo-desc">${escapeHtml(p.description)}</p>` : ""}
-        ${p.endDate ? `<small class="promo-period">Jusqu'au ${escapeHtml(formatDate(p.endDate))}</small>` : ""}
+        ${promoPeriodHtml(p)}
+        <div class="product-actions">
+          ${product
+            ? `<a class="btn btn-gold" href="${whatsappLink(`Bonjour Le Kadior, je souhaite commander : ${product.name} (promotion « ${p.title} »${newPrice != null ? `, ${formatFcfa(newPrice)}` : ""}).`)}" target="_blank" rel="noopener">${WA_ICON}<span>Commander</span></a>`
+            : `<a class="btn btn-soft" href="${escapeHtml(url)}">${category ? "Voir les produits" : "Voir le catalogue"}</a>`}
+        </div>
       </div>
     </article>`;
 }
@@ -476,14 +511,17 @@ function renderPromotions(update = false) {
   const section = $("#promotions");
   const grid = $("#promoGrid");
   if (!section || !grid) return;
-  const today = todayMbour();
-  const list = promotions
-    .filter(p => isPromotionCurrent(p, today))
-    .filter(p => (!p.productId || products.some(x => x.id === p.productId)) &&
-                 (!p.categoryId || KADIOR_CATEGORIES.some(c => c.id === p.categoryId)))
-    .sort((a, b) => a.order - b.order);
+  const list = currentPromotions();
   grid.innerHTML = list.map(promotionCard).join("");
-  section.hidden = list.length === 0;
+  const empty = $("#promoEmpty");
+  if (empty) {                                   // page Promotions : toujours affichée
+    empty.hidden = list.length > 0;
+    const count = $("#promoCount");
+    if (count && list.length) count.textContent = `${list.length} offre${list.length > 1 ? "s" : ""} en cours · à commander directement par WhatsApp.`;
+  } else {
+    section.hidden = list.length === 0;
+  }
+  refreshCarousel(grid);
   if (update) {
     grid.querySelectorAll(".reveal-card").forEach(el => el.classList.add("visible"));
     setupImageFallbacks(grid);
@@ -504,29 +542,181 @@ function renderGallery(update = false) {
       ${g.title ? `<figcaption>${escapeHtml(g.title)}</figcaption>` : ""}
     </figure>`).join("");
   section.hidden = list.length === 0;
+  refreshCarousel(grid);
   if (update) {
     grid.querySelectorAll(".reveal-card").forEach(el => el.classList.add("visible"));
     setupImageFallbacks(grid);
   }
 }
 
-document.addEventListener("kadior:promotions", e => { promotions = Array.isArray(e.detail) ? e.detail : []; renderPromotions(true); });
+/* ============ BANDE ANIMÉE (haut de toutes les pages) ============
+   Fait défiler : les promotions en cours (automatique, lien vers la page
+   Promotions) puis les informations écrites par l'admin (paramètre
+   « bandeau_infos » : une ligne = une information). Sans rien à annoncer :
+   « Qualité · Fraîcheur · Savoir-faire ». Pause au survol ; pas d'animation
+   si l'utilisateur a demandé moins de mouvements. */
+
+const TICKER_DEFAULT = "Qualité · Fraîcheur · Savoir-faire";
+const TAG_ICON = `<svg class="tb-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8L3 12Z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg>`;
+
+function tickerPromoText(p) {
+  const product = p.productId ? products.find(x => x.id === p.productId) : null;
+  const { oldPrice, newPrice, badge } = promotionPricing(p, product);
+  let offer = "";
+  if (newPrice != null && oldPrice != null) offer = ` : ${formatFcfa(newPrice)} au lieu de ${formatFcfa(oldPrice)}`;
+  else if (newPrice != null) offer = ` : ${formatFcfa(newPrice)}`;
+  else if (badge) offer = ` : ${badge}`;
+  const d = daysLeft(p.endDate);
+  const end = d === null ? "" : d <= 0 ? " — dernier jour" : d <= 3 ? ` — plus que ${d} jour${d > 1 ? "s" : ""}` : ` — jusqu'au ${longDay(p.endDate)}`;
+  return `<b>${escapeHtml(p.title)}</b>${escapeHtml(offer + end)}`;
+}
+
+function renderTicker() {
+  const box = $("#topTicker");
+  if (!box) return;
+  const track = box.querySelector(".ticker-track");
+  const promos = currentPromotions().map(p =>
+    `<a class="ticker-item ticker-promo" href="promotions.html">${TAG_ICON}<span>${tickerPromoText(p)}</span></a>`);
+  const raw = (window.KADIOR_SETTINGS && window.KADIOR_SETTINGS.bandeau_infos) || "";
+  const infos = String(typeof raw === "string" ? raw : "").split(/\r?\n/).map(t => t.trim()).filter(Boolean)
+    .map(t => `<span class="ticker-item ticker-info">${escapeHtml(t)}</span>`);
+  const items = promos.concat(infos);
+  if (!items.length) items.push(`<span class="ticker-item ticker-info">${TICKER_DEFAULT}</span>`);
+  const sep = `<span class="ticker-sep" aria-hidden="true">◆</span>`;
+  const one = items.map(it => it + sep).join("");
+  // Deux copies à la suite : la boucle est continue
+  track.innerHTML = `<span class="ticker-group">${one}</span><span class="ticker-group" aria-hidden="true">${one}</span>`;
+  track.querySelectorAll('.ticker-group[aria-hidden] a').forEach(a => a.tabIndex = -1);
+  requestAnimationFrame(() => {
+    const w = track.firstElementChild.getBoundingClientRect().width;
+    track.style.setProperty("--ticker-duration", `${Math.max(12, Math.round(w / 60))}s`);   // ~60 px/s
+    box.classList.add("is-ready");
+  });
+}
+
+document.addEventListener("kadior:promotions", e => { promotions = Array.isArray(e.detail) ? e.detail : []; renderPromotions(true); renderTicker(); });
+document.addEventListener("kadior:settings", () => renderTicker());
 document.addEventListener("kadior:gallery", e => { galleryItems = Array.isArray(e.detail) ? e.detail : []; renderGallery(true); });
 // Produits ou catégories modifiés : noms, prix et images des promotions recalculés
-document.addEventListener("kadior:products", () => renderPromotions(true));
+document.addEventListener("kadior:products", () => { renderPromotions(true); renderTicker(); });
 
 function initPromotionsAndGallery() {
   renderPromotions();
   renderGallery();
+  renderTicker();
   // Page ouverte au passage de minuit (heure de Mbour) : les promotions sont refiltrées
-  if ($("#promoGrid")) {
+  if ($("#promoGrid") || $("#topTicker")) {
     const schedule = () => {
       const now = new Date();
       const nextDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
-      setTimeout(() => { renderPromotions(true); schedule(); }, nextDay - now.getTime() + 1000);
+      setTimeout(() => { renderPromotions(true); renderTicker(); schedule(); }, nextDay - now.getTime() + 1000);
     };
     schedule();
   }
+}
+
+/* ============ BOX (accueil) ============
+   Produits de la catégorie « Box » (box salées, sucrées, mixtes…), créés par
+   l'admin comme n'importe quel produit. Section masquée s'il n'y en a aucune. */
+
+function renderBoxes(update = false) {
+  const section = $("#box");
+  const grid = $("#boxGrid");
+  if (!section || !grid) return;
+  const list = products.filter(p => (p.category || "").toLowerCase() === "box");
+  grid.innerHTML = list.map((p, i) => productCard(p, i, true)).join("");
+  section.hidden = list.length === 0;
+  refreshCarousel(grid);
+  if (update) {
+    grid.querySelectorAll(".reveal-card").forEach(el => el.classList.add("visible"));
+    setupImageFallbacks(grid);
+  }
+}
+
+/* ============ DIAPORAMAS ============
+   Une rangée de cartes qui défile toute seule (toutes les 4,5 s), avec flèches
+   et points. Pause quand on survole, touche ou parcourt la rangée au clavier.
+   Pas de défilement automatique si l'utilisateur a demandé moins d'animations.
+   Si toutes les cartes tiennent à l'écran, flèches et points sont masqués. */
+
+const carousels = new WeakMap();
+
+function refreshCarousel(track) {
+  if (!track || !track.classList.contains("carousel-track")) return;
+  let c = carousels.get(track);
+  if (!c) c = setupCarousel(track);
+  c.rebuild();
+}
+
+function setupCarousel(track) {
+  const box = track.parentElement;
+  const nav = document.createElement("div");
+  nav.className = "carousel-nav";
+  nav.innerHTML = `<button type="button" class="carousel-btn" data-dir="-1" aria-label="Précédent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+    <div class="carousel-dots"></div>
+    <button type="button" class="carousel-btn" data-dir="1" aria-label="Suivant"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>`;
+  box.appendChild(nav);
+  const dotsBox = nav.querySelector(".carousel-dots");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let paused = false, resumeTimer, timer;
+
+  const step = () => {
+    const first = track.children[0];
+    if (!first) return track.clientWidth;
+    const gap = parseFloat(getComputedStyle(track).columnGap) || 0;
+    return first.getBoundingClientRect().width + gap;
+  };
+  const atEnd = () => track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
+  const go = dir => {
+    if (dir > 0 && atEnd()) track.scrollTo({ left: 0, behavior: "smooth" });
+    else if (dir < 0 && track.scrollLeft <= 4) track.scrollTo({ left: track.scrollWidth, behavior: "smooth" });
+    else track.scrollBy({ left: dir * step(), behavior: "smooth" });
+  };
+  const update = () => {
+    const scrollable = track.scrollWidth > track.clientWidth + 4;
+    nav.hidden = !scrollable;
+    box.classList.toggle("is-static", !scrollable);
+    const index = Math.round(track.scrollLeft / (step() || 1));
+    const dots = dotsBox.children;
+    for (let k = 0; k < dots.length; k++) dots[k].classList.toggle("active", k === Math.min(index, dots.length - 1));
+  };
+  const pause = () => { paused = true; clearTimeout(resumeTimer); };
+  const resumeLater = () => { clearTimeout(resumeTimer); resumeTimer = setTimeout(() => { paused = false; }, 6000); };
+
+  nav.addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.dir) go(Number(b.dataset.dir));
+    else if (b.dataset.i) track.scrollTo({ left: Number(b.dataset.i) * step(), behavior: "smooth" });
+    pause(); resumeLater();
+  });
+  track.addEventListener("scroll", () => requestAnimationFrame(update), { passive: true });
+  box.addEventListener("mouseenter", pause);
+  box.addEventListener("mouseleave", () => { paused = false; });
+  box.addEventListener("focusin", pause);
+  box.addEventListener("focusout", resumeLater);
+  track.addEventListener("touchstart", pause, { passive: true });
+  track.addEventListener("touchend", resumeLater, { passive: true });
+  window.addEventListener("resize", update);
+  if (!reduceMotion) {
+    timer = setInterval(() => {
+      if (paused || document.hidden || nav.hidden) return;
+      go(1);
+    }, 4500);
+  }
+
+  const c = {
+    rebuild() {
+      const n = track.children.length;
+      dotsBox.innerHTML = n <= 16
+        ? Array.from({ length: n }, (_, k) => `<button type="button" class="carousel-dot" data-i="${k}" aria-label="Élément ${k + 1}"></button>`).join("")
+        : "";
+      track.scrollLeft = 0;
+      requestAnimationFrame(update);
+    }
+  };
+  carousels.set(track, c);
+  return c;
 }
 
 /* ============ PAGE MATÉRIEL ============ */
@@ -744,6 +934,7 @@ function refreshCatalogViews() {
   syncCatalogData();
   renderCategories();
   renderProducts();
+  renderBoxes(true);
   if (rerenderCatalog) rerenderCatalog();
   if (rerenderProductPage) rerenderProductPage();
   initEquipment();
@@ -954,6 +1145,7 @@ initCatalog();
 initProductPage();
 initEvents();
 initPromotionsAndGallery();
+renderBoxes();
 initEquipment();
 setupWhatsAppForms();
 setupImageFallbacks();

@@ -331,3 +331,64 @@ a.media{display:block}
 .gallery-item figcaption{padding:10px 12px;font-size:12px;font-weight:700;color:var(--brown)}
 @media(max-width:900px){.gallery-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:560px){.gallery-grid{grid-template-columns:repeat(2,1fr);gap:10px}.gallery-item figcaption{padding:8px 10px;font-size:11px}}
+
+/* ============ DIAPORAMAS (promotions, box, galerie) ============ */
+.carousel{position:relative}
+.carousel-track{display:flex!important;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:4px 2px 10px}
+.carousel-track::-webkit-scrollbar{display:none}
+.carousel-track>*{flex:0 0 calc((100% - 5*14px)/6);scroll-snap-align:start;min-width:0}
+.gallery-grid.carousel-track>*{flex-basis:calc((100% - 3*14px)/4)}
+.carousel.is-static .carousel-track{scroll-snap-type:none}
+.carousel-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px}
+.carousel-nav[hidden]{display:none}
+.carousel-btn{width:38px;height:38px;border-radius:50%;border:1px solid rgba(201,168,76,.55);background:#fff;color:var(--brown);display:grid;place-items:center;cursor:pointer;box-shadow:var(--shadow);transition:background .2s,color .2s}
+.carousel-btn:hover{background:var(--gold);color:#fff}
+.carousel-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.carousel-dots{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.carousel-dot{width:8px;height:8px;border-radius:50%;border:0;padding:0;background:rgba(74,44,29,.22);cursor:pointer;transition:width .25s,background .25s}
+.carousel-dot.active{width:22px;border-radius:5px;background:var(--gold)}
+@media(max-width:1100px){.carousel-track>*{flex-basis:calc((100% - 3*14px)/4)}.gallery-grid.carousel-track>*{flex-basis:calc((100% - 2*14px)/3)}}
+@media(max-width:820px){.carousel-track>*{flex-basis:calc((100% - 2*14px)/3)}}
+@media(max-width:560px){.carousel-track{gap:10px}.carousel-track>*{flex-basis:72%}.gallery-grid.carousel-track>*{flex-basis:78%}}
+/* Box : cartes plus larges (moins nombreuses que les produits) */
+#boxGrid.carousel-track>*{flex-basis:calc((100% - 3*14px)/4)}
+@media(max-width:820px){#boxGrid.carousel-track>*{flex-basis:calc((100% - 14px)/2)}}
+@media(max-width:560px){#boxGrid.carousel-track>*{flex-basis:78%}}
+/* Promotions en tête de page : visibles dès l'arrivée, sans faire défiler */
+.promo-top{padding:22px 0 26px}
+.promo-top .section-heading{margin-bottom:14px}
+.promo-top .section-heading h2{font-size:clamp(22px,3vw,32px)}
+.promo-top .carousel-nav{margin-top:8px}
+@media(max-width:560px){.promo-top{padding:14px 0 18px}.promo-top .carousel-track>*{flex-basis:62%}.promo-top .text-link{font-size:12px}}
+
+/* ============ BANDE ANIMÉE (haut de page) ============ */
+.topbar-ticker{flex:1;min-width:0;height:100%;overflow:hidden;display:flex;align-items:center;-webkit-mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent);mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent)}
+.ticker-track{display:inline-flex;white-space:nowrap;will-change:transform}
+.topbar-ticker.is-ready .ticker-track{animation:kd-ticker var(--ticker-duration,30s) linear infinite}
+.topbar-ticker:hover .ticker-track,.topbar-ticker:focus-within .ticker-track{animation-play-state:paused}
+.ticker-group{display:inline-flex;align-items:center}
+.ticker-item{display:inline-flex;align-items:center;gap:6px;padding:0 4px}
+.ticker-info{color:#f5ecdd}
+.ticker-promo{color:var(--gold-light);text-decoration:none}
+.ticker-promo b{font-weight:700}
+.ticker-promo:hover span,.ticker-promo:focus-visible span{text-decoration:underline;outline:none}
+.ticker-sep{color:var(--gold);font-size:9px;padding:0 22px}
+@keyframes kd-ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce){.topbar-ticker.is-ready .ticker-track{animation:none}.topbar-ticker{overflow-x:auto;-webkit-mask-image:none;mask-image:none}}
+@media(max-width:700px){.topbar{height:32px;flex-wrap:nowrap;padding:0;row-gap:0}.topbar-left{display:none}.topbar-ticker{flex:1 1 100%}}
+
+/* Réseaux sociaux dans le pied de page */
+.footer-socials{display:flex;gap:10px;margin-top:14px}
+.footer-socials a{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;border:1px solid rgba(201,168,76,.5);color:#fff;transition:background .2s,color .2s}
+.footer-socials a:hover,.footer-socials a:focus-visible{background:var(--gold);color:var(--dark);outline:none}
+.footer-socials svg{width:16px;height:16px;fill:currentColor}.footer-socials .tb-stroke{fill:none;stroke:currentColor;stroke-width:2}
+
+/* ============ PAGE PROMOTIONS ============ */
+.promo-page-grid{grid-template-columns:repeat(4,1fr);gap:18px}
+.promo-soon{color:#b3261e;font-weight:700}
+.promo-empty{text-align:center;padding:40px 20px;background:#fff;border-radius:14px;box-shadow:var(--shadow)}
+.promo-empty h2{margin-bottom:8px}
+.promo-empty p{color:var(--muted);margin-bottom:18px}
+@media(max-width:1100px){.promo-page-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:820px){.promo-page-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.promo-page-grid{grid-template-columns:1fr}}
