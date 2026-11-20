@@ -132,6 +132,18 @@
   /* ---------- Formats ---------- */
 
   KA.fmtPrice = n => Number(n).toLocaleString("fr-FR") + " FCFA";
+  KA.fmtNombre = n => Number(n).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+
+  /* ---------- Dates et sessions (heure locale = heure de Dakar) ---------- */
+
+  const isoDay = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  KA.today = () => isoDay(new Date());
+  KA.yesterday = () => { const d = new Date(); d.setDate(d.getDate() - 1); return isoDay(d); };
+  KA.longDate = iso => new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  // Session par défaut : celle de l'employé, sinon matin avant 15 h et soir après
+  KA.defaultSession = () => KA.state.profile.session || (new Date().getHours() < 15 ? "matin" : "soir");
+  // Date et session partagées entre Production et Caisse
+  KA.journee = { date: null, session: null };
   KA.badge = (text, kind) => `<span class="badge badge-${kind}">${esc(text)}</span>`;
   KA.activeBadge = on => on ? KA.badge("Visible", "ok") : KA.badge("Masqué", "off");
   KA.nextId = function (rows, prefix, width) {
@@ -399,6 +411,7 @@
     gallery: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>',
     settings: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
     production: '<path d="M4 15c0-4 3.6-7 8-7s8 3 8 7v2H4v-2Z"/><path d="M8 11.5 9 17M12 10.5V17M16 11.5 15 17"/><path d="M3 20h18"/>',
+    caisse: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/><path d="M7 6V4h10v2"/>',
     team: '<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5A5 5 0 0 1 21 19"/>'
   };
   KA.icon = name => `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">${KA.icons[name] || ""}</svg>`;
